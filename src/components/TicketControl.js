@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import NewTicketForm from './NewTicketForm';
 import TicketList from './TicketList';
 import EditTicketForm from './EditTicketForm';
 import TicketDetail from './TicketDetail';
+import db from './../firebase.js';
+import { collection, addDoc, doc, updateDoc, onSnapshot, deleteDoc } from "firebase/firestore";
 
 function TicketControl() {
 
@@ -10,6 +12,33 @@ function TicketControl() {
   const [mainTicketList, setMainTicketList] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [editing, setEditing] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const unSubscribe = onSnapshot(
+      collection(db, "tickets"),
+      (collectionSnapshot) => {
+        const tickets = [];
+        collectionSnapshot.forEach((doc) => {
+            tickets.push({
+              names: doc.data().names,
+              location: doc.data().location,
+              issue: doc.data().issue,
+              id: doc.id
+            });
+        });
+        setMainTicketList(tickets);
+      },
+      (error) => {
+        setError(error.message);
+      }
+    );
+
+    return () => unSubscribe();
+  }, []);
+  
+
+  
 
 
  const handleClick = () => {
@@ -43,22 +72,25 @@ const handleDeletingTicket = (id) => {
     
   }
 
-  const handleAddingNewTicketToList = (newTicket) => {
-    const newMainTicketList = mainTicketList.concat(newTicket);
-    setMainTicketList(newMainTicketList);
-    setFormVisibleOnPage(false)
-  }
-
   const handleChangingSelectedTicket = (id) => {
     const selection = mainTicketList.filter(ticket => ticket.id === id)[0];
     setSelectedTicket(selection);
   }
 
+// ASYNC EVENT HANDLER
+const handleAddingNewTicketToList = async (newTicketData) => {
+  const collectionRef = collection(db, "tickets");
+  await addDoc(collectionRef, newTicketData);
+  setFormVisibleOnPage(false);
+}
  
     let currentlyVisibleState = null;
     let buttonText = null; 
 
-    if (editing ) {      
+    if (error) {      
+      currentlyVisibleState = <p>There was an error: {error}</p>
+    } 
+    else if (editing) {      
       currentlyVisibleState = 
       <EditTicketForm 
       ticket = {selectedTicket} 
@@ -88,7 +120,7 @@ const handleDeletingTicket = (id) => {
     return (
       <React.Fragment>
         {currentlyVisibleState}
-        <button onClick={handleClick}>{buttonText}</button> 
+        {error ? null : <button onClick={handleClick}>{buttonText}</button>}
       </React.Fragment>
     );
   }
