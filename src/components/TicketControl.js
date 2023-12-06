@@ -4,7 +4,8 @@ import TicketList from './TicketList';
 import EditTicketForm from './EditTicketForm';
 import TicketDetail from './TicketDetail';
 import { db, auth } from './../firebase.js';
-import { collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { formatDistanceToNow } from 'date-fns';
+import { collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 
 function TicketControl() {
 
@@ -15,17 +16,28 @@ function TicketControl() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const unSubscribe = onSnapshot(
+
+    const queryByTimestamp = query(
       collection(db, "tickets"),
-      (collectionSnapshot) => {
+      orderBy('timeOpen', 'desc')
+    );
+
+    const unSubscribe = onSnapshot(
+
+      queryByTimestamp,
+      (querySnapshot) => {
         const tickets = [];
-        collectionSnapshot.forEach((doc) => {
-            tickets.push({
-              names: doc.data().names,
-              location: doc.data().location,
-              issue: doc.data().issue,
-              id: doc.id
-            });
+        querySnapshot.forEach((doc) => {
+          const timeOpen = doc.get('timeOpen', {serverTimestamps: "estimate"}).toDate();
+          const jsDate = new Date(timeOpen);
+          tickets.push({
+            names: doc.data().names,
+            location: doc.data().location,
+            issue: doc.data().issue,
+            timeOpen: jsDate,
+            formattedWaitTime: formatDistanceToNow(jsDate),
+            id: doc.id
+          });
         });
         setMainTicketList(tickets);
       },
@@ -37,6 +49,8 @@ function TicketControl() {
     return () => unSubscribe();
   }, []);
 
+ 
+
   if (auth.currentUser == null) {
     return (
       <React.Fragment>
@@ -44,10 +58,6 @@ function TicketControl() {
       </React.Fragment>
     )
   } else if (auth.currentUser != null) {
-  
-
-  
-
 
  const handleClick = () => {
     if (selectedTicket != null) {
@@ -81,13 +91,14 @@ const handleDeletingTicket = async (id) => {
     setSelectedTicket(selection);
   }
 
-// ASYNC EVENT HANDLER
+
 const handleAddingNewTicketToList = async (newTicketData) => {
   const collectionRef = collection(db, "tickets");
   await addDoc(collectionRef, newTicketData);
   setFormVisibleOnPage(false);
 }
- 
+ //*** RENDERING COMPONENTS ***//
+
     let currentlyVisibleState = null;
     let buttonText = null; 
 
