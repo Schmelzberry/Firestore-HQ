@@ -5,7 +5,7 @@ import EditTicketForm from './EditTicketForm';
 import TicketDetail from './TicketDetail';
 import { db, auth } from './../firebase.js';
 import { formatDistanceToNow } from 'date-fns';
-import { collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 
 function TicketControl() {
 
@@ -16,23 +16,28 @@ function TicketControl() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const unSubscribe = onSnapshot(
+
+    const queryByTimestamp = query(
       collection(db, "tickets"),
+      orderBy('timeOpen', 'desc')
+    );
+
+    const unSubscribe = onSnapshot(
+
+      queryByTimestamp,
       (querySnapshot) => {
         const tickets = [];
         querySnapshot.forEach((doc) => {
-          const timeOpen = doc.get('timeOpen', { serverTimestamps: 'estimate' });
-          if (timeOpen && timeOpen.seconds) {
-            const jsDate = new Date(timeOpen.seconds * 1000);
-            tickets.push({
-              names: doc.data().names,
-              location: doc.data().location,
-              issue: doc.data().issue,
-              timeOpen: jsDate,
-              formattedWaitTime: formatDistanceToNow(jsDate),
-              id: doc.id
-            });
-          }
+          const timeOpen = doc.get('timeOpen', {serverTimestamps: "estimate"}).toDate();
+          const jsDate = new Date(timeOpen);
+          tickets.push({
+            names: doc.data().names,
+            location: doc.data().location,
+            issue: doc.data().issue,
+            timeOpen: jsDate,
+            formattedWaitTime: formatDistanceToNow(jsDate),
+            id: doc.id
+          });
         });
         setMainTicketList(tickets);
       },
@@ -40,7 +45,7 @@ function TicketControl() {
         setError(error.message);
       }
     );
-  
+
     return () => unSubscribe();
   }, []);
 
