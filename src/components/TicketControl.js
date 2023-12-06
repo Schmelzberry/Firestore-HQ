@@ -4,6 +4,7 @@ import TicketList from './TicketList';
 import EditTicketForm from './EditTicketForm';
 import TicketDetail from './TicketDetail';
 import { db, auth } from './../firebase.js';
+import { formatDistanceToNow } from 'date-fns';
 import { collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from "firebase/firestore";
 
 function TicketControl() {
@@ -17,15 +18,21 @@ function TicketControl() {
   useEffect(() => {
     const unSubscribe = onSnapshot(
       collection(db, "tickets"),
-      (collectionSnapshot) => {
+      (querySnapshot) => {
         const tickets = [];
-        collectionSnapshot.forEach((doc) => {
+        querySnapshot.forEach((doc) => {
+          const timeOpen = doc.get('timeOpen', { serverTimestamps: 'estimate' });
+          if (timeOpen && timeOpen.seconds) {
+            const jsDate = new Date(timeOpen.seconds * 1000);
             tickets.push({
               names: doc.data().names,
               location: doc.data().location,
               issue: doc.data().issue,
+              timeOpen: jsDate,
+              formattedWaitTime: formatDistanceToNow(jsDate),
               id: doc.id
             });
+          }
         });
         setMainTicketList(tickets);
       },
@@ -33,9 +40,11 @@ function TicketControl() {
         setError(error.message);
       }
     );
-
+  
     return () => unSubscribe();
   }, []);
+
+ 
 
   if (auth.currentUser == null) {
     return (
@@ -44,10 +53,6 @@ function TicketControl() {
       </React.Fragment>
     )
   } else if (auth.currentUser != null) {
-  
-
-  
-
 
  const handleClick = () => {
     if (selectedTicket != null) {
@@ -81,13 +86,14 @@ const handleDeletingTicket = async (id) => {
     setSelectedTicket(selection);
   }
 
-// ASYNC EVENT HANDLER
+
 const handleAddingNewTicketToList = async (newTicketData) => {
   const collectionRef = collection(db, "tickets");
   await addDoc(collectionRef, newTicketData);
   setFormVisibleOnPage(false);
 }
- 
+ //*** RENDERING COMPONENTS ***//
+
     let currentlyVisibleState = null;
     let buttonText = null; 
 
